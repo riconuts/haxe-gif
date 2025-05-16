@@ -7,22 +7,17 @@ import gif.images.GifDecoder;
 import gif.images.GifFrameInfo;
 import flash.utils.Timer;
 
-class AnimatedGif extends Sprite{
-
-	private var bmaps:Array<Bitmap>;
-	private var frames:Array<GifFrameInfo>;
-	var pos:Int=0;
-	public var playing(default,null):Bool;
-	private var timer:Timer;
-
-	////////////////////////////////////////////////////////////////////////////////////////////////
-	////////////////////////////////////////////////////////////////////////////////////////////////
-
-	public function new(data){
-		super();
-		bmaps = new Array<Bitmap>();
-		frames = GifDecoder.decode(data).frameList;
-		for(gifFrameInfo in frames){
+class GifData {
+	public final bmaps:Array<BitmapData>;
+	public final frames:Array<GifFrameInfo>;
+	public final length:Int;
+	
+	public function new(bytes) {
+		bmaps = new Array<BitmapData>();
+		frames = GifDecoder.decode(bytes).frameList;
+		length = frames.length;
+		for (i in 0...length){
+			var gifFrameInfo = frames[i];
 			var bitmapData=new BitmapData(gifFrameInfo.imageWidth,gifFrameInfo.imageHeight);
 			var rgbaImageData = gifFrameInfo.getRgbaImageData();
 			var index = 0;
@@ -61,15 +56,38 @@ class AnimatedGif extends Sprite{
 					bitmapData.setPixel32(Std.int(i % gifFrameInfo.imageWidth), Std.int(i/gifFrameInfo.imageWidth), rgba);
 				}
 			}
-			
+			bmaps.push(bitmapData);
+		}
+	}
+}
+
+class AnimatedGif extends Sprite{
+
+	private var bmaps:Array<Bitmap>;
+	private var frames:Array<GifFrameInfo>;
+	var pos:Int=0;
+	public var playing(default,null):Bool;
+	private var timer:Timer;
+
+	////////////////////////////////////////////////////////////////////////////////////////////////
+	////////////////////////////////////////////////////////////////////////////////////////////////
+
+	public function new(data:GifData){
+		super();
+		this.bmaps = new Array<Bitmap>();
+		this.frames = data.frames;
+
+		for (i in 0...data.length) {
+			var bitmapData = data.bmaps[i];
+			var gifFrameInfo = data.frames[i];
 			var bitmap=new Bitmap(bitmapData);
 			bitmap.x=gifFrameInfo.imageLeftPosition;
 			bitmap.y=gifFrameInfo.imageTopPosition;
 			this.addChild(bitmap);
+			this.bmaps.push(bitmap);
 			bitmap.visible=false;
-			bmaps.push(bitmap);
-			gifFrameInfo.clearBinaryData();
 		}
+
 		bmaps[0].visible=true;
 		pos=-1;
 		playing=false;
@@ -79,7 +97,7 @@ class AnimatedGif extends Sprite{
 	public function play():AnimatedGif{
 		if(playing) return this;
 		playing=true;
-		timer=new Timer(0,1);
+		timer=new Timer(10,0);
 		timer.addEventListener(flash.events.TimerEvent.TIMER, timerTick);
 		timer.delay=nextFrame();
 		timer.start();
